@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH --job-name=full_sampling_generate_cases
+#SBATCH --partition=windq,workq,rome
+#SBATCH --time=12:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=32
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=ajmlu@dtu.dk
+
+/work/users/ajmlu/miniconda3/envs/openfast_env_v1/bin/python ./OpenFASTWrapper_v5.py
+

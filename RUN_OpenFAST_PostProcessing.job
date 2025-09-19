@@ -1,0 +1,55 @@
+#!/bin/bash
+#SBATCH --job-name=run_openfast
+#SBATCH --partition=windq,workq,rome
+#SBATCH --time=08:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=6
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=ajmlu@dtu.dk
+#SBATCH --array=520-1000%10
+#SBATCH -o run_%A_%a.out    # stdout from each array task
+#SBATCH -e run_%A_%a.err    # stderr from each array task
+
+set -euo pipefail
+
+module --force purge || true
+module use --append /apps/external/sapps/modules/app
+module load openfast/4.0.0
+
+SIM_FOLDER=Design_${SLURM_ARRAY_TASK_ID}
+
+cd Nautilus_15MW_Parametric
+cd $SIM_FOLDER
+
+for CASE_DIR in */; do
+   echo "Entering $CASE_DIR..."
+   cd $CASE_DIR || { echo "Failed to enter $CASE_DIR"; exit 1; }
+   NAME_SIMU=sample_${SLURM_ARRAY_TASK_ID}
+   cd $NAME_SIMU
+   
+   # Wind generation
+   cd IEA-15-240-RWT || { echo "Failed to enter IEA-15-240-RWT"; exit 1; }
+   /work/users/ajmlu/miniconda3/envs/openfast_env_v1/bin/python /home/ajmlu/Python_Framework_Design_Constraints/02_Design_Exploration_Surrogate_Model/Cases/wind_generation.py $NAME_SIMU
+   
+   # Run OpenFAST
+   cd .. || { echo "Failed to enter $SIM_FOLDER"; exit 1; }
+   openfast $NAME_SIMU.fst
+   
+   # Save output file to persistent location
+	mkdir -p ../../../../Saved_Outputs
+	SAVE_NAME="Output_${SIM_FOLDER}_$(basename ${CASE_DIR%/}).out"
+	cp "${NAME_SIMU}.out" "../../../../Saved_Outputs/${SAVE_NAME}"
+	
+	cd ../..
+done
+
+cd ..
+
+# Run PostProcessing 
+/work/users/ajmlu/miniconda3/envs/openfast_env_v1/bin/python /home/ajmlu/Python_Framework_Design_Constraints/06_Fatigue_Database/04_OpenFAST_Runs/Cases/PostProcessing.py $SIM_FOLDER $NAME_SIMU
+
+# Delete files 
+rm -r $SIM_FOLDER
+
+echo "All simulations in $SIM_FOLDER completed."
+
