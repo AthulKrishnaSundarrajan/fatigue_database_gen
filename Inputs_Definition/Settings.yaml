@@ -1,0 +1,56 @@
+time:
+  sim_time: 4600      # seconds (1 hour)
+
+turbine:
+  rotor_diameter: 240.0    # meters
+  hub_height: 147.57        # meters
+  rated_power: 15.0        # MW
+  cut_in_speed: 3.0        # m/s
+  cut_out_speed: 25.0      # m/s
+
+wind:
+  reference_height: 150     # m/s
+  alpha: 0.12                # -
+  Ny: 32                     # -
+  Nz: 32                     # -
+  dx: 5.77                   # m
+  seeds_number: 6
+
+mooring_layout:
+  depth: 264.30              # m
+  l_top_chain: 50            # m
+  l_bottom_chain: 300         # m
+  x_fairlead_line_1: -35.109 # m
+  y_fairlead_line_1: 35.109  # m
+  z_fairlead_line_1: -7.66   # m
+  x_anchor_line_1: -791.7132  # m
+  y_anchor_line_1: 791.7132   # m
+  z_anchor_line_1: -264.30      # m
+  z_in_line_buoy_wr_seafloor: 23.09 #m 
+  angles: [45, 135, 225, 315]    # line headings list [rad]
+  typeName_chain: chain                       # identifier string for the line type
+  typeName_rope: polyester                        # identifier string for the line type
+  nb_segments_top_chain: 10 
+  nb_segments_rope: 150
+  nb_segments_bottom_chain: 60
+  in_line_buoy_volume: 20
+  in_line_buoy_mass: 1.0E-09
+  in_line_buoy_Ca: 1.0
+  in_line_buoy_CdA: 1.1
+  mean_load: 430000
+  chain_Cd: 2.4
+  chain_Ca: 1.0
+  polyester_Cd: 1.2
+  polyester_Ca: 1.0
+  cost_chain_per_kg: 2.585 # dollar/kg
+  cost_polyester_per_m_MBL: 1.65E-05 # dollar/m/N
+
+mooring_time_solver: 
+  dtM: 0.001
+  kb: 3.0E+06
+  cb: 3.0E+05
+  dtIC: 20
+  TmaxIC: 240
+  threshIC: 0.0005
+  dtOut: 0.0001
+  CdScaleIC: 3
