@@ -1,5 +1,5 @@
 time:
-  sim_time: 4600      # seconds (1 hour)
+  sim_time: 46      # seconds (1 hour)
 
 turbine:
   rotor_diameter: 240.0    # meters

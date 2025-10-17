@@ -4,7 +4,7 @@ import sys
 import time
 import yaml
 import numpy as np
-from openfast_toolbox.io.fast_input_file import FASTInputFile
+#from openfast_toolbox.io.fast_input_file import FASTInputFile
 from hipersim.turbgen.generate_field import generate_field
 
 #%% Mann Turbulence Model Function

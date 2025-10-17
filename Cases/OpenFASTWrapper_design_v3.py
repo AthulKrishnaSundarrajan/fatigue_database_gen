@@ -1,35 +1,19 @@
 # MoorPy Example Script:
 # Example of manually setting up a mooring system in MoorPy and solving equilibrium.
 
-def _load_yaml(file_path):
-    
-    import yaml
-    import os 
-    
-    """Loads a YAML file and returns its data."""
-    if not os.path.exists(file_path):
-        print(f"Warning: File {file_path} does not exist.")
-        return {}
-
-    with open(file_path, "r") as file:
-        try:
-            return yaml.safe_load(file)
-        except yaml.YAMLError as exc:
-            print(f"Error reading {file_path}: {exc}")
-            return {}
+import numpy as np
+import matplotlib.pyplot as plt
+import moorpy as mp
+from moorpy.MoorProps import getLineProps
+import os
+import math
+from load_yaml import load_yaml
 
 def update_mooring_system (polyester_nom_diameter, chain_nom_diameter, l_rope, z_fairlead, radius, file_settings, save_dir, doe_number): 
     
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import moorpy as mp
-    from moorpy.MoorProps import getLineProps
-    import os
-    import math
-
 
     # ----- choose some system geometry parameters -----
-    fixed_variables = _load_yaml(file_settings)
+    fixed_variables = load_yaml(file_settings)
 
     depth     = fixed_variables["mooring_layout"]["depth"]  
     angles    = np.radians(fixed_variables["mooring_layout"]["angles"])      # line headings list [rad]
@@ -102,16 +86,16 @@ def update_mooring_system (polyester_nom_diameter, chain_nom_diameter, l_rope, z
         ms.pointList[i].m = fixed_variables["mooring_layout"]["in_line_buoy_mass"]
 
     # ----- run the model to demonstrate -----
-    file_location = os.getcwd() + '/'
-    file_name = "IEA-15-240-RWT-Nautilus_MoorDyn_synthetic" + "_design_" + str(doe_number) + ".dat"
+    
+    file_location = save_dir +os.sep #os.getcwd() + os.sep
+    file_name = "IEA-15-240-RWT-Nautilus_MoorDyn_synthetic_og.dat"
     
     #ms.initialize()                                             # make sure everything's connected
 
     #ms.solveEquilibrium()                                       # equilibrate
-
+    
     ms.unload(file_location + file_name, MDversion=2, flag = 'ts', 
               outputList = ['LINE2PZ','LINE5PZ', 'LINE8PZ', 'LINE11PZ'], Lm = 10)                         # export to MD input file
-
 
     #%% Opening the file and change some lines
 
@@ -143,13 +127,13 @@ def update_mooring_system (polyester_nom_diameter, chain_nom_diameter, l_rope, z
     polyester_Ca = fixed_variables["mooring_layout"]["polyester_Ca"]
     polyester_CdAx = 0.0
     polyester_CaAx = 0.0
-
+    
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)  # Creates the folder (and parent directories if needed)
-        
-    final_file_name = "IEA-15-240-RWT-Nautilus_MoorDyn_synthetic" + "_design_" + str(doe_number) + ".dat"
+    
+    final_file_name = "IEA-15-240-RWT-Nautilus_MoorDyn.dat" # AKS: Since we are directly creating the directory and printing the file to the durectory, we dont need to create a separate file. Well print it directly to the Design_nx folder under the name that the .fst file has it as
     f_in = open(file_location + file_name, 'rt')
-    f_out = open(save_dir + final_file_name, 'w')
+    f_out = open(file_location+ final_file_name, 'w')
 
     for k, line in enumerate(f_in):
         if k == 5:
@@ -170,9 +154,10 @@ def update_mooring_system (polyester_nom_diameter, chain_nom_diameter, l_rope, z
     
     if os.path.exists(file_location + file_name):
         os.remove(file_location + file_name)  # Deletes the file
-        print("File deleted successfully")
+        print("File created successfully")
     else:
         print("File does not exist")
+
 
 if __name__ == "__main__":
     update_mooring_system(polyester_nom_diameter = 226, chain_nom_diameter = 150 , l_rope = 764.64, 
