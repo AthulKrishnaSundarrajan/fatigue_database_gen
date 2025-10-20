@@ -11,13 +11,14 @@ from copy import copy
 #from openfast_toolbox.io.fast_input_file import FASTInputFile
 from Cases.OpenFASTWrapper_design_v3 import update_mooring_system
 from load_yaml import load_yaml
+from mpi_tools import MPI
 
 from openfast_io.FAST_reader import InputReader_OpenFAST
 from openfast_io.FAST_writer import InputWriter_OpenFAST
 
 from wind_generation import mann_model
 import time as timer
-from run_openfast import run_openfast
+#from run_openfast import run_openfast
 
 class run_experiment():
 
@@ -95,15 +96,22 @@ class run_experiment():
 
                 fst_copy = copy(fst_vt)
 
-                outputDir=self.work_dir + 'Design_' + str(exp["experiment_id"]) + os.sep +'seed_no_'+str(i)
+                designDir = self.work_dir + 'Design_' + str(exp["experiment_id"])
+
+                outputDir=designDir + os.sep +'seed_no_'+str(i)
+
+                # create work directory
+                if not os.path.exists(designDir):
+                    os.mkdir(designDir)
+
+                # create work directory
+                if not os.path.exists(outputDir):
+                    os.mkdir(outputDir)
 
                 self._generate_simulation_cases(exp,fst_copy,outputDir,self.main_file)
 
-                
-
         self._update_mooring_layout()
 
-        breakpoint()
 
 
     def _generate_simulation_cases(self, exp,fst_vt,output_dir,main_file):
@@ -304,25 +312,94 @@ class run_experiment():
 
 if __name__ == '__main__':
 
+    if MPI:
+        from mpi_tools import map_comm_heirarchical,subprocessor_loop, subprocessor_stop
+
     # get path to current folder
     run_dir = os.path.dirname(os.path.realpath(__file__))
 
+    outputs_dir = run_dir + os.sep +'outputs'
+
+    if not os.path.exists(outputs_dir):
+        is.mkdir(outputs_dir)
+
     of_model_dir = run_dir + os.sep + 'OpenFAST_Base_Case_Model'
-    work_dir = run_dir + os.sep + 'Nautilus_15MW_Parametric_test'+os.sep
+    work_dir = outputs_dir + os.sep + 'Nautilus_15MW_Parametric_test'+os.sep
     config_env_design_file = run_dir + os.sep + 'Inputs_Definition'+os.sep+'DOE_Design_Environmental_Definitions_test.yaml'
     config_sim_file = run_dir + os.sep + 'Inputs_Definition'+os.sep+ 'Settings.yaml'
+
+    # create work directory
+    if not os.path.exists(work_dir):
+        os.mkdir(work_dir)
+
+    sim_settings = load_yaml(config_sim_file)
+    sim_designs = load_yaml(config_env_design_file)
+    
+    n_samples = len(sim_designs['experiments'])
+    n_seeds = sim_settings['wind']['seeds_number']
+
+    n_simulations = int(n_samples*n_seeds)
+
+    if MPI:
+
+        # get maximum available cores
+        max_cores = MPI.COMM_WORLD.Get_size()
+
+        # get number of cases we will be running
+        max_parallel_runs = max([int(np.floor((max_cores - 1))), 1])
+        n_runs_parallel = min([n_simulations, max_parallel_runs])
+
+        # get mapping
+        comm_map_down, comm_map_up, color_map = map_comm_heirarchical(1, n_runs_parallel)
+
+        rank    = MPI.COMM_WORLD.Get_rank()
+
+        if rank < len(color_map):
+           
+            color_i = color_map[rank]
+            
+        else:
+            color_i = max(color_map) + 1
+        
+        comm_i  = MPI.COMM_WORLD.Split(color_i, 1)
+    else:
+        color_i = 0
+        rank = 0
+
+    if color_i == 0:
+
+        mpi_options = {}
+
+        if MPI:
+            
+            mpi_options['MPI'] = MPI
+            mpi_options['mpi_run'] = True 
+            mpi_options['mpi_comm_map_down'] = comm_map_down
+
+        else:
+            mpi_options['mpi_run'] = False
     
 
 
-    wrapper = run_experiment(
-        of_dir = of_model_dir,
-        main_file="IEA-15-240-RWT-Nautilus.fst",
-        work_dir=work_dir,
-        config_env_design_file=config_env_design_file,
-        config_sim_file=config_sim_file)
+        wrapper = run_experiment(
+            of_dir = of_model_dir,
+            main_file="IEA-15-240-RWT-Nautilus.fst",
+            work_dir=work_dir,
+            config_env_design_file=config_env_design_file,
+            config_sim_file=config_sim_file)
 
-    mpi_options['mpi_run'] = False
+        outputs = run_openfast(wrapper.fst_files,mpi_options,wrapper.wind_dirs)
 
-    outputs = run_openfast(wrapper.fst_files,mpi_options)
+    if MPI and color_i < 1000000:
+        sys.stdout.flush()
+        if rank in comm_map_up.keys():
+            subprocessor_loop(comm_map_up)
+        sys.stdout.flush()
 
-    breakpoint()
+        # close signal to subprocessors
+        subprocessor_stop(comm_map_down)
+        sys.stdout.flush()
+
+    if MPI and color_i < 1000000:
+        MPI.COMM_WORLD.Barrier()
+

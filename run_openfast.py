@@ -11,7 +11,7 @@ fail_value = 9999
 allow_fails = True
 fatigue_channels = {'TwrBsMyt': FatigueParams(slope=4),}
 
-def run_wrapper(fst_file,overwrite_flag):
+def run_wrapper(fst_file,overwrite_flag,wind_dir):
 
     wrapper = FAST_wrapper()
 
@@ -40,18 +40,20 @@ def run_wrapper(fst_file,overwrite_flag):
         failed = False
         print('OpenFAST not executed: Output file "%s" already exists. To overwrite this output file, set "overwrite_outfiles = True".'%FAST_Output)
 
+    print('removing wind directory '+wind_dir)
+    shutil.rmtree(wind_dir)
 
     output = read(FAST_Output,fatigue_channels = fatigue_channels)
 
     return output
 
 
-def run_serial(fst_files,overwrite_flag):
+def run_serial(fst_files,overwrite_flag,wind_dirs):
 
     output_list = []
     # run openfast simulations in parallel
-    for fst_file in fst_files:
-        output = run_wrapper(fst_file,overwrite_flag)
+    for i_file,fst_file in enumerate(fst_files):
+        output = run_wrapper(fst_file,overwrite_flag,wind_dirs[i_file])
 
         output_list.append(output)
 
@@ -60,7 +62,7 @@ def run_serial(fst_files,overwrite_flag):
 def evaluate_multi(case_data):
     print(case_data['fst_file'])
 
-    output = run_wrapper(case_data['fst_file'],case_data['overwrite_flag'])
+    output = run_wrapper(case_data['fst_file'],case_data['overwrite_flag'],case_data['wind_dir'])
 
     return output
 
@@ -100,16 +102,17 @@ def run_mpi(case_data_all,mpi_options):
     return output_list
 
 
-def run_openfast(fst_files,mpi_options,GB_ratio = 1, TStart = 0,overwrite_flag = False):
+def run_openfast(fst_files,mpi_options,wind_dirs):
 
     if mpi_options['mpi_run']:
         # evaluate the closed loop simulations in parallel using MPI
 
         case_data_all = []
-        for fst_file in fst_files:
+        for i_file,fst_file in enumerate(fst_files):
             case_data = {}
             case_data['fst_file'] = fst_file
             case_data['overwrite_flag'] = overwrite_flag
+            case_data['wind_dir'] = wind_dirs[i_file]
 
             case_data_all.append(case_data)
 
@@ -118,7 +121,7 @@ def run_openfast(fst_files,mpi_options,GB_ratio = 1, TStart = 0,overwrite_flag =
     else:
 
         # evaluate the closed loop simulations serially
-        sim_outputs = run_serial(fst_files,overwrite_flag)
+        sim_outputs = run_serial(fst_files,overwrite_flag,wind_dirs)
 
 
     return sim_outputs
