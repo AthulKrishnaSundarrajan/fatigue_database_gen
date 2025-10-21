@@ -1,17 +1,25 @@
 import os
 import numpy as np
 import shutil
+from wind_generation import mann_model
 
-from weis.aeroelasticse.FAST_wrapper import FAST_wrapper
+from FAST_wrapper import FAST_wrapper
 from pCrunch import Crunch,FatigueParams, AeroelasticOutput,read
 
-of_path = os.path.realpath( shutil.which('openfast') )
+of_path = os.path.realpath(shutil.which('openfast') )
 
 fail_value = 9999
 allow_fails = True
 fatigue_channels = {'TwrBsMyt': FatigueParams(slope=4),}
 
-def run_wrapper(fst_file,overwrite_flag,wind_dir):
+def run_wrapper(fst_file,wind_dir,wind_dict,overwrite_flag):
+
+    print('Generating wind files')
+
+    mann_model(wind_dict['U_hub'],
+     wind_dict['nx'], wind_dict['ny'], wind_dict['nz'],
+     wind_dict['dx'], wind_dict['dy'], wind_dict['dz'],
+     wind_dict['sim_time'],wind_dict['file_name'], wind_dict['wind_seed'])
 
     wrapper = FAST_wrapper()
 
@@ -43,17 +51,17 @@ def run_wrapper(fst_file,overwrite_flag,wind_dir):
     print('removing wind directory '+wind_dir)
     shutil.rmtree(wind_dir)
 
-    output = read(FAST_Output,fatigue_channels = fatigue_channels)
+    output = FAST_Output
 
     return output
 
 
-def run_serial(fst_files,overwrite_flag,wind_dirs):
+def run_serial(fst_files,wind_dirs,wind_list,overwrite_flag):
 
     output_list = []
     # run openfast simulations in parallel
     for i_file,fst_file in enumerate(fst_files):
-        output = run_wrapper(fst_file,overwrite_flag,wind_dirs[i_file])
+        output = run_wrapper(fst_file,wind_dirs[i_file],wind_list[i_file],overwrite_flag)
 
         output_list.append(output)
 
@@ -62,7 +70,7 @@ def run_serial(fst_files,overwrite_flag,wind_dirs):
 def evaluate_multi(case_data):
     print(case_data['fst_file'])
 
-    output = run_wrapper(case_data['fst_file'],case_data['overwrite_flag'],case_data['wind_dir'])
+    output = run_wrapper(case_data['fst_file'],case_data['wind_dir'],case_data['wind_dict'],case_data['overwrite_flag'])
 
     return output
 
@@ -102,7 +110,7 @@ def run_mpi(case_data_all,mpi_options):
     return output_list
 
 
-def run_openfast(fst_files,mpi_options,wind_dirs):
+def run_openfast(fst_files,mpi_options,wind_dirs,wind_list,overwrite_flag = True):
 
     if mpi_options['mpi_run']:
         # evaluate the closed loop simulations in parallel using MPI
@@ -113,6 +121,7 @@ def run_openfast(fst_files,mpi_options,wind_dirs):
             case_data['fst_file'] = fst_file
             case_data['overwrite_flag'] = overwrite_flag
             case_data['wind_dir'] = wind_dirs[i_file]
+            case_data['wind_dict'] = wind_list[i_file]
 
             case_data_all.append(case_data)
 
@@ -121,7 +130,7 @@ def run_openfast(fst_files,mpi_options,wind_dirs):
     else:
 
         # evaluate the closed loop simulations serially
-        sim_outputs = run_serial(fst_files,overwrite_flag,wind_dirs)
+        sim_outputs = run_serial(fst_files,wind_dirs,wind_list,overwrite_flag)
 
 
     return sim_outputs
